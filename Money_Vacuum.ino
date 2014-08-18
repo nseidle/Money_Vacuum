@@ -1,5 +1,3 @@
-#include <SPI.h>
-
  /*
  A kid's museum donation money vacuum
  By: Nathan Seidle
@@ -27,6 +25,27 @@
  5/5/2014: Added an override switch but don't have enough free pins. Had to take two pins
  from the hopper IR gate.
  
+ 6/16/2014: Covered in dust. Sound deadening box installed in the rafters. Single hopper
+ channel install. Override switch installed. 
+ 
+ 6/23/2014: Exhibit is up and operational.
+ 
+ ToDo: Add Watchdog to main code.
+ 
+ How the override is wired:
+ Orange of CAT cable connects to the orange paddle on the switch. The orange paddle
+ connects (shorts) to the 5V paddle when switch is set to the OFF system position. This
+ is read by the Arduino: if the pin is high (connected to 5V), system should be off. If pin is low the
+ system should be on.
+
+ Orange/White of the CAT cable connects to the red paddle on the switch. The red paddle
+ is energized with 5V.
+
+ Blue of the CAT cable connects to the brown paddle on the switch. The brown paddle
+ connects to negative of the LED. If this pin is set LOW the LED will be on. If this 
+ pin is set high the LED will be off. 
+ 
+ 
  MP3 decoding
  Amplifier
  2-4 IR gates
@@ -35,27 +54,28 @@
  13 - SCK/Status
  12 - MISO
  11 - MOSI
- 10 - Entry IR Gate
+ 10 - Entry IRX Gate
  
  9 - SD-CS
  8 - MP3-RST
  7 - MP3-DCS
  6 - MP3-CS
- 5 - Hopper IR Gate
- 4 - Entry IR Gate
- 3 - Entry IR Gate
+ 5 - Hopper IR
+ 4 - Entry IR
+ 3 - Entry IR
  2 - MP3-DREQ
  1/0 - Serial / Imp
  
  A0 - Relay
  A1 - Relay
- A2 - Enrty IR Gate
- A3 - Hopper IR Gate
- A4 - Hopper IR Gate / Override Switch, yellow on the cntr, orange on CAT cable
- A5 - Hopper IR Gate / Override LED, red on cntr, blue within CAT cable
+ A2 - Entry IRX Gate
+ A3 - Hopper IRX Gate
+ A4 - Hopper IRX Gate / Override Switch, yellow on the cntr, orange on CAT cable
+ A5 - Hopper IR / Override LED, red on cntr, blue within CAT cable
  */
 
 //Include various libraries
+//#include <avr/wdt.h> //We need watch dog for this program
 #include <SPI.h>           // SPI library
 #include <SdFat.h>         // SDFat Library
 #include <SdFatUtil.h>     // SDFat Util Library
@@ -82,7 +102,6 @@ int overRideLED = A5;
 
 const byte blower = A0;
 const byte strobe = A1;
-const byte StatusLED = 8; //LED on Imp shield. P13 doesn't work because of MP3 shield.
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 //Global variables
@@ -93,8 +112,8 @@ int Hits[10]; //This array holds the number of times a channel is activated in a
 int MAXHITS = 10; //This is the number of hits before a channel is ignored. 
 int MINHITS = 5; //This is the number of hits required before a channel is considered broken (for reals).
 
-int MAX_BLOW_TIME = 10000; //This is the max ms system will run. 10 seconds (10,000) is good.
-int MAX_STROBE_TIME = 5000; //This is the max ms system will run. 5 seconds (5,000) is good.
+int MAX_BLOW_TIME = 7000; //This is the max ms system will run. 7 seconds (7,000) is good.
+int MAX_STROBE_TIME = 5000; //This is the max ms strobe will spin. 5 seconds (5,000) is good.
 
 int TRANSMISSIONS = 50; //This is the number times we cycle a beam. 40 to 50 is good.
 //Increasing this number slows down the system but helps prevent false positive breaks
@@ -114,33 +133,37 @@ boolean playerStopped = false; //These are booleans used to control the main loo
 boolean blowerBeamBroken = false;
 boolean strobeBeamBroken = false;
 
+int reportNumber = 0;
+
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 //These are the messages that are sent to the Imp
 //They can be anything really but we chose a start/stop byte with a number
 //for easier parsing
-#define STROBE_OFF  "$1#"
-#define PLAYER_OFF  "$2#"
+#define MONEY_ONLINE  "0,Money_Vacuum_Online"
+#define STROBE_OFF  "1,Strobe_off"
+#define PLAYER_OFF  "2,Player_off"
 
-#define BLOWER_ON_NEWBILL "$3#"
-#define BLOWER_ON_MAXTIME "$4#"
-#define BLOWER_OFF_BILLEXIT "$5#"
-#define BLOWER_OFF_MAXTIME "$6#"
+#define BLOWER_ON_NEWBILL "3,Blow-on:newbill"
+#define BLOWER_ON_MAXTIME "4,Blow-on:maxtime"
+#define BLOWER_OFF_BILLEXIT "5,Blow-off:bill_exit"
+#define BLOWER_OFF_MAXTIME "6,Blow-off:maxtime"
 
-#define OVERRIDE_ON "$7#"
-#define OVERRIDE_OFF "$8#"
+#define OVERRIDE_ON "7,Override_on"
+#define OVERRIDE_OFF "8,Override_off"
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-//
 void setup() {
+  //wdt_reset(); //Pet the dog
+  //wdt_disable(); //We don't want the watchdog during init
+
   Serial.begin(9600);
-  Serial.println("Money Vacuum"); 
+  //Serial.println("Money Vacuum"); 
 
   pinMode(A0, INPUT); //Just for a second so we can see the random generator
   randomSeed(analogRead(0)); //For picking random audio tracks
 
-  pinMode(StatusLED, OUTPUT);
-
-  pinMode(overRideSwitch, INPUT_PULLUP);
+  pinMode(overRideSwitch, INPUT);
   pinMode(overRideLED, OUTPUT);
 
   pinMode(irEmitter0, OUTPUT);
@@ -176,40 +199,33 @@ void setup() {
 
   playRandomTrack();
 
+  digitalWrite(overRideLED, LOW); //Turn LED on
+
   //Let the world know we are online
-  Serial.println("Money vacuum online");
+  reportStatus(MONEY_ONLINE); //Report this interaction to the imp
+  //wdt_enable(WDTO_1S); //Unleash the beast
 }
 
 void loop() {
-
-  //Blink the status LED every second
-  if( millis() - thisSecond > 1000) {
-    thisSecond += 1000;
-    if(digitalRead(StatusLED) == LOW) 
-      digitalWrite(StatusLED, HIGH);
-    else
-      digitalWrite(StatusLED, LOW);
-  }
+  //wdt_reset(); //Pet the dog
 
   //Stop everything if the override switch is engaged
-  if(digitalRead(overRideSwitch) == LOW)
+  if(isOverrideTurnedOn() == true)
   {
-    digitalWrite(overRideLED, LOW); //Turn off LED to indicate system is off
+    digitalWrite(overRideLED, HIGH); //Turn off LED to indicate system is off
     
     digitalWrite(blower, LOW); //Turn off blower immediately
     digitalWrite(strobe, LOW); //Turn off strobe if it happens to be on
     MP3player.end(); //Turn off any MP3 playing
     playerStopped = true;
     
-    while(digitalRead(overRideSwitch) == LOW)
+    while(isOverrideTurnedOn() == true)
     {
-      //Someday, we may need to pet the dog in here
-      delay(1000);
-      Serial.println("System halted!");
-      Serial.println(OVERRIDE_ON); //Report this interaction to the imp
+      delayDog(1000); //Delay with watchdog in mind
+      reportStatus(OVERRIDE_ON); //Report this interaction to the imp
     }
-    digitalWrite(overRideLED, HIGH); //System is back on
-    Serial.println(OVERRIDE_OFF); //Report this interaction to the imp
+    digitalWrite(overRideLED, LOW); //Turn LED on, System is back on
+    reportStatus(OVERRIDE_OFF); //Report this interaction to the imp
   }
 
   if(playerStopped == true) checkBeams(); //Test the beams only when MP3 is not playing
@@ -219,13 +235,11 @@ void loop() {
     blowerBeamBroken = false;
 
     blowerStart = millis(); //Record this time. If someone puts in two bills this will cause the system to run longer.
-    Serial.println("New bill!");
 
     //Check to see if we are already running
     if(digitalRead(blower) == LOW)
     {
-      Serial.println("Blower on");
-      Serial.println(BLOWER_ON_NEWBILL); //Report this interaction to the imp
+      reportStatus(BLOWER_ON_NEWBILL); //Report this interaction to the imp
       digitalWrite(blower, HIGH); //Start blower
     }
   }
@@ -237,14 +251,14 @@ void loop() {
     //Check to see if we are already spinning the strobe
     if(digitalRead(strobe) == LOW)
     {
-      Serial.println("Bill has finished! Blower off. Strobe on. Playing sound.");
-      Serial.println(BLOWER_OFF_BILLEXIT); //Report this interaction to the imp
+      //Serial.println("Bill has finished! Blower off. Strobe on. Playing sound.");
+      reportStatus(BLOWER_OFF_BILLEXIT); //Report this interaction to the imp
 
       digitalWrite(blower, LOW); //Stop blower
       digitalWrite(strobe, HIGH); //Start strobe
       strobeStart = millis(); //Record the time the strobe starts
 
-      delay(1000); //Put some time between strobe, blower, and sound
+      delayDog(1000); //Put some time between strobe, blower, and sound
       playRandomTrack(); //Play sound
     }
   }
@@ -254,8 +268,20 @@ void loop() {
     if(millis() - blowerStart > MAX_BLOW_TIME)
     {
       digitalWrite(blower, LOW); //Turn off blower
-      Serial.println("Blower off");
-      Serial.println(BLOWER_OFF_MAXTIME); //Report this interaction to the imp
+
+      reportStatus(BLOWER_OFF_MAXTIME); //Report this interaction to the imp
+
+      //Check to see if we are already spinning the strobe
+      if(digitalRead(strobe) == LOW)
+      {
+        //Run the strobe for a little bit because we can
+        //For some reason the exit gate isn't working
+        digitalWrite(strobe, HIGH); //Start strobe
+        strobeStart = millis(); //Record the time the strobe starts
+  
+        delayDog(1000); //Put some time between strobe, blower, and sound
+        playRandomTrack(); //Play sound
+      }
     }
   }
 
@@ -264,9 +290,8 @@ void loop() {
     if(millis() - strobeStart > MAX_STROBE_TIME)
     {
       digitalWrite(strobe, LOW); //Turn off strobe
-      Serial.println("Strobe off.");
 
-      Serial.println(STROBE_OFF); //Report this interaction to the imp
+      reportStatus(STROBE_OFF); //Report this interaction to the imp
     }
   }
 
@@ -276,20 +301,68 @@ void loop() {
     //Serial.println("Player is playing");
     if(MP3player.isPlaying() == false)
     {
-      Serial.println("Player is now stopped");
-      MP3player.end();
+      MP3player.end(); //MP3 player is buzzing. This disables it
       
-      //MP3 player is buzzing. Need to disable (reset) MP3 IC or something...
       playerStopped = true;
 
-      Serial.println(PLAYER_OFF); //Report this interaction to the imp
+      reportStatus(PLAYER_OFF); //Report this interaction to the imp
     }
   }
+}
+
+//Delays a given amount, petting the dog while we delay
+void delayDog(int delay_amt)
+{
+  long startTime = millis();
+  while(millis() - startTime < delay_amt) {
+    delay(10);
+    //wdt_reset(); //Pet the dog
+  }
+}
+
+//Takes in a string and creates a parsable string out of it
+void reportStatus(char* eventCode)
+{
+  Serial.print("$,");
+  Serial.print(eventCode);
+  Serial.print(",");
+  Serial.print(reportNumber++);
+  Serial.println(",#,"); //That final comma is important
+}
+
+//The over-ride switch is wired a bit funky. See comments at top.
+//If switch is set to the position labeled 'OFF' it is really connecting
+//5V to the pin. If switch is in 'ON' position, the overRide pin is left floating.
+//Therefore we will do a high-z test to see if the pin is connected to 5V or left floating.
+boolean isOverrideTurnedOn(void)
+{
+  boolean systemOn = false;
+  
+  pinMode(overRideSwitch, OUTPUT); //Let's control the pin for a second
+  digitalWrite(overRideSwitch, LOW);
+  
+  if(digitalRead(overRideSwitch) == HIGH)
+  {
+    //The pin is *really* shorted to 5V
+    systemOn = false; //System should be off
+  }
+  else
+  {
+    //The pin is not connected to anything so it is ok to run the system    
+    systemOn = true;
+  }
+  
+  digitalWrite(overRideSwitch, HIGH);
+  pinMode(overRideSwitch, INPUT); //Stop trying to control the pin
+  
+  return(systemOn);
 }
 
 //Checks the beams for breaking at sets variables if one is broken
 void checkBeams()
 {
+  //wdt_reset(); //Pet the dog
+  
   for(int channel = 0 ; channel < NUMBER_OF_CHANNELS ; channel++) 
   {
     if(test_channel(channel) == 0) //Beam is broken
@@ -317,16 +390,18 @@ void checkBeams()
       if(Hits[channel] > MINHITS & Hits[channel] < MAXHITS)
       {
         if(channel == 0 || channel == 1) {
-          Serial.println("Blower Break!");
+          //Serial.println("Blower Break!");
           blowerBeamBroken = true;
         }
         if(channel == 2 || channel == 3)
         {
-          Serial.println("Hopper Break!");
+          //Serial.println("Hopper Break!");
           strobeBeamBroken = true;
         }
       }
   }
+
+  //wdt_reset(); //Pet the dog
 }
 
 //Plays a random track
@@ -338,7 +413,10 @@ void playRandomTrack()
   byte trackNumber = previousTrack1;
 
   while(trackNumber == previousTrack1 || trackNumber == previousTrack2) //Don't play the same track as the last donation
+  {
+    //wdt_reset(); //Pet the dog
     trackNumber = random(1, 6); //(inclusive min, exclusive max)
+  }
 
   sprintf(track_name, "TRACK%03d.WAV", trackNumber); //Splice the track number into file name
 
@@ -347,8 +425,11 @@ void playRandomTrack()
 
   if(MP3player.isPlaying()) MP3player.stopTrack(); //Stop any previous track
 
+  //wdt_reset(); //Pet the dog
+  //Not sure how long these functions take
   MP3player.begin();
   MP3player.playMP3(track_name);
+  //wdt_reset(); //Pet the dog
 
   //Update the previous variables
   previousTrack2 = previousTrack1;
@@ -370,6 +451,8 @@ void playRandomTrack()
 //For the illumitune we use 38kHz IR receivers, not 36kHz. Let's tweak to 38kHz.
 //We need on for 8us, off for 20us
 int test_channel(int channel_number) {
+
+  //wdt_reset(); //Pet the dog
 
   for(int x = 0 ; x < TRANSMISSIONS ; x++) {
 
@@ -432,10 +515,9 @@ int test_channel(int channel_number) {
     __asm__("nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t");
     __asm__("nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t""nop\n\t");
     __asm__("nop\n\t""nop\n\t""nop\n\t");
-
-
-
   }
+
+  //wdt_reset(); //Pet the dog
 
   if(channel_number == 0) 
     if(digitalRead(irDetector0) == HIGH) return(0); //Beam is broken!
@@ -447,7 +529,6 @@ int test_channel(int channel_number) {
   //  if(digitalRead(irDetector3) == HIGH) return(0); //Beam is broken!
 
   return(1); //Beam is intact
-
 }
 
 //This routine helps debug a single channel
@@ -455,7 +536,6 @@ int test_channel(int channel_number) {
 
 void test_IRs(void)
 {
-
   while(1) 
   {
     Serial.print("Beams: ");
@@ -474,13 +554,14 @@ void test_IRs(void)
     }
     Serial.println();
 
+    //wdt_reset(); //Pet the dog
     delay(10);
   }
 }
 
 void demoIRLEDs(void) {
-#define ON HIGH
-#define OFF LOW
+  #define ON HIGH
+  #define OFF LOW
 
   Serial.println("IRs are demoing - break out your smart phone to see");
 
@@ -490,7 +571,7 @@ void demoIRLEDs(void) {
   digitalWrite(irEmitter2, ON);
   //digitalWrite(irEmitter3, ON);
 
-  delay(1000);
+  delayDog(1000);
 
   //Turn off all LEDs
   digitalWrite(irEmitter0, OFF);
