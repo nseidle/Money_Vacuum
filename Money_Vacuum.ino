@@ -30,6 +30,8 @@
  
  6/23/2014: Exhibit is up and operational.
  
+ 8/18/2014: Exhibit has been performing swimmingly. Increasing audio 
+ 
  ToDo: Add Watchdog to main code.
  
  How the override is wired:
@@ -420,8 +422,8 @@ void playRandomTrack()
 
   sprintf(track_name, "TRACK%03d.WAV", trackNumber); //Splice the track number into file name
 
-  Serial.print("Playing: ");
-  Serial.println(track_name);
+  //Serial.print("Playing: ");
+  //Serial.println(track_name);
 
   if(MP3player.isPlaying()) MP3player.stopTrack(); //Stop any previous track
 
@@ -602,6 +604,12 @@ void initMP3Player()
     // Error checking can go here!
   }
 
-  MP3player.setVolume(5, 5); // MP3 Player volume 0=max, 255=lowest (off)
+  //This was the original volume. Too low for a busy day. It is hard to say
+  //what level the amp is set to but we can tweak this up in software.
+  //MP3player.setVolume(5, 5); // MP3 Player volume 0=max, 255=lowest (off)
+
+  //New volume level 8/18/2014
+  MP3player.setVolume(3, 3); // MP3 Player volume 0=max, 255=lowest (off)
+
   MP3player.setMonoMode(1); // Mono setting: 0=off, 1 = on, 3=max
 }
