@@ -609,7 +609,10 @@ void initMP3Player()
   //MP3player.setVolume(5, 5); // MP3 Player volume 0=max, 255=lowest (off)
 
   //New volume level 8/18/2014
-  MP3player.setVolume(0, 0); // MP3 Player volume 0=max, 255=lowest (off)
+  //MP3player.setVolume(0, 0); // MP3 Player volume 0=max, 255=lowest (off)
+
+  //New volume level 1/12/2015 - I don't believe this does anything. Adjusting knob on amp
+  MP3player.setVolume(250, 250); // MP3 Player volume 0=max, 255=lowest (off)
 
   MP3player.setMonoMode(1); // Mono setting: 0=off, 1 = on, 3=max
 }
