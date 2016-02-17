@@ -1,8 +1,13 @@
 Money Vacuum - A Donation Machine
 =======
+
 Money vacuum is an interactive exhibit at the [WOW kid's museum](http://www.wowchildrensmuseum.org/) in Lafayette, CO . Inserting a crumbled bill causes the machine to turn on, sucking the bill out of your hand and through a series of clear tubes. Once the bills reach the collection hopper a strobe light goes off and a short musical track or voice track (pirates thanking you) is played.
 
-The increased interactivity has increased donations (a locked box marked 'Donate') from around $30 a month to roughly $150 a month. It's wonderful to watch a parent pull out a dollar, let their kid crumple it up and send it through the system. The kid says 'AGAIN!' and the next smallest bill the parent has is $5...
+![A gif of sucking up money](https://raw.githubusercontent.com/nseidle/Money_Vacuum/master/Images/Money-Vacuum.gif)
+
+Give it a moment to load the gif...
+
+The increased interactivity has increased donations from around $30 a month (a locked box marked 'Donate') to roughly $150 a month. It's wonderful to watch a parent pull out a dollar, let their kid crumple it up and send it through the system. The kid says 'AGAIN!' and the next smallest bill the parent has is $5...
 
 ![The series of tubes that form the donation machine](https://raw.githubusercontent.com/nseidle/Money_Vacuum/master/Images/Entire%20System.jpg)  
 
@@ -22,6 +27,10 @@ The collection hopper is located behind the front desk. It is made from a 5 gall
 
 Note: There is an on/off switch below the hopper (shown at bottom of photo). This is a toggle switch with LED that allows the floor staff to disable the intake gate if they are too busy to monitor the system. If switch is moved high and system is ready, LED inside the switch turns on. This is basically an override in case traffic on the floor gets too hectic to monitor 6 year old trying to suck their little brother's sock into the system (won't hurt but is not good).
 
+![Tube hooks](https://raw.githubusercontent.com/nseidle/Money_Vacuum/master/Images/3%20Sets%20Of%20Tube%20Hooks.jpg)
+
+The series of clear acrylic tubes are supported by three sets of [hose hangers](http://www.amazon.com/gp/product/B00FAMGDSG).
+
 ![Installed Electrical System](https://raw.githubusercontent.com/nseidle/Money_Vacuum/master/Images/Control%20Board%20Installed.jpg)
 
 There are two SSR controlled outlets for the vacuum/dust collection blower (AC) and strobe light (AC). There is an amplifier to increase the audio signal coming from the SparkFun MP3 shield. The controller is a [SparkFun RedBoard Arduino](https://www.sparkfun.com/products/12757) with the [MP3 shield](https://www.sparkfun.com/products/12660), an [Electric Imp shield](https://www.sparkfun.com/products/12887) and a [proto shield](https://www.sparkfun.com/products/7914) with [RJ45 connectors](https://www.sparkfun.com/products/716) to the various IR gates. If I had to do it again today I would use the [ESP8266 Thing Dev Board](https://www.sparkfun.com/products/13711).
@@ -29,6 +38,59 @@ There are two SSR controlled outlets for the vacuum/dust collection blower (AC) 
 ![Noise Cancellation](https://raw.githubusercontent.com/nseidle/Money_Vacuum/master/Images/Noise%20Supression%20Box.jpg)
 
 After installing the system the floor staff asked that we dampen the noise of the blower. Mind you, the floor of the kid's museum is absolute mayhem every day of the week. The blower was being activated quite often (with and without donations) and the din was getting to the wonderful folks that run the museum day to day. So I designed a box that could be inserted and assembled into the rafters. Made of 2x4' sheets of foam and duct tape, I installed an attic vent as the exhaust port (a circle cut into a 2x2 foam board). It worked well but the blower pushed enough air into this box to blow it out. I reinforced the box with hand bent metal straps found in the drywall isle (not sure what their actual usage is). This solution has dampened the noise considerably (but it's still loud) for the last three years. If I had more space between the rafters I would assemble a proper box on the ground and then install it; but otherwise, this is a great solution.
+
+Bill of Materials
+-------------------
+
+This is a rough list of materials and vendors:
+
+**Vacuum System:**
+
+* [Central Machinery, 1HP Dust collection system](http://www.amazon.com/gp/product/B006ZBCF0Q) $104
+* [4" clear acrylic tube](http://www.delviesplastics.com/p/Round_Extruded_Tube.html) (48" lengths): 44 linear ft, $15 per foot
+* [4" Flexible Clear Hose](http://www.amazon.com/gp/product/B001DT15GK) x 30 ft: $31 per 10'
+* [4" J-Hooks 5-Pack](http://www.amazon.com/gp/product/B001C06B5K) x 15pcs : $22 per pack
+* [4" Hose clamps 5-Pack](http://www.amazon.com/gp/product/B002F1H01E) - 20pcs: $10 per pack
+* [4" Hose Hangers 6-Pack](http://www.amazon.com/gp/product/B00FAMGDSG): $11
+* [Revolving Beacon Light](http://www.amazon.com/gp/product/B0011CZV5A): $12
+* [6 gal PET Carboy](http://www.amazon.com/dp/B00FKA4BFK): $25
+* [4" Connector Collars](http://www.amazon.com/gp/product/B00AX5I9XM): $10 for pack of 2
+* [3M Transparent Weather Sealing Tape](http://www.amazon.com/gp/product/B0000CBIFF): $4
+
+**Electronics:**
+
+* [Solid State Relay](https://www.sparkfun.com/products/13015) x 2pcs : $10 per relay
+* Double Gang Metal Housing - 2pcs: $5 per housing from local hardware store
+* Double Gang Metal Plate - 2pcs: $1 from local hardware store
+* Outlet - 2pcs: $1 per outlet from local hardware store
+* Power Strip: $8 You absolutely have one of these sitting around
+* Wooden Backer Board: Roughly 1' x 2'
+* [Mini Amplifier](https://www.amazon.com/s/ref=nb_sb_noss?field-keywords=mini+amplifier): $20
+* [Dual Indoor/Outdoor Speakers](http://www.amazon.com/gp/product/B000A5S926): $30 for the pair but you only need one
+
+**Control System:**
+
+* [RedBoard](https://www.sparkfun.com/products/12757): $20
+* [5V Wall Adapter](https://www.sparkfun.com/products/12889): $6
+* [MP3 Player Shield](https://www.sparkfun.com/products/12660): $35
+* [Electric Imp](https://www.sparkfun.com/products/11395): $30
+* [Electric Imp Shield](https://www.sparkfun.com/products/12887): $20
+* [Protoshield](https://www.sparkfun.com/products/7914): $10
+* [RJ45 connectors](https://www.sparkfun.com/products/716) x 2: $1
+* [RJ45 Breakout](https://www.sparkfun.com/products/716) x 2: $2
+* [2-Pin JST](https://www.sparkfun.com/products/9914) x 2: $1
+* [LED switch](https://www.sparkfun.com/products/11310): $3
+* [IR LED](https://www.sparkfun.com/products/9349) x 2: $1
+* [IR Receiver](https://www.sparkfun.com/products/10266) x 2:$2
+
+**Noise Supression Box:**
+
+* 4x2' 2" Styrofoam Board x 5 sheets
+* Exhaust vent
+* Duct tape
+* Bent Metal Straps (Something with lots of surface area and bendable by hand)
+
+You might also need a fish to get the cables where they need to be inside the walls.
 
 License Information
 -------------------
