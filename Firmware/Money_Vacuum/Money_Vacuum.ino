@@ -82,13 +82,17 @@
 
 //Include various libraries
 //#include <avr/wdt.h> //We need watch dog for this program
-//#include <SPI.h>           // SPI library
 #include <SdFat.h>         // SDFat Library
-#include <vs1053_SdFat.h> // Click here to get the library: http://librarymanager/All#VS1053_sdfat
-
 SdFat sd; // Create object to handle SD functions
 
+//New library
+#include <vs1053_SdFat.h> // Click here to get the library: http://librarymanager/All#VS1053_sdfat
 vs1053 MP3player; // Create Mp3 library object
+
+//Old library
+//#include <SPI.h>           // SPI library
+//#include "src/SFEMP3Shield/SFEMP3Shield.h"
+//SFEMP3Shield MP3player; // Create Mp3 library object
 
 //Hardware connections
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -217,7 +221,8 @@ void loop()
 
     digitalWrite(blower, LOW); //Turn off blower immediately
     digitalWrite(strobe, LOW); //Turn off strobe if it happens to be on
-    MP3player.end(); //Turn off any MP3 playing
+    //MP3player.end(); //Turn off any MP3 playing
+    if (MP3player.isPlaying()) MP3player.stopTrack(); //Stop any previous track
     playerStopped = true;
 
     while (isOverrideTurnedOn() == true)
@@ -302,12 +307,20 @@ void loop()
     //Serial.println("Player is playing");
     if (MP3player.isPlaying() == false)
     {
-      MP3player.end(); //MP3 player is buzzing. This disables it
+      //MP3player.end(); //MP3 player is buzzing. This disables it
 
       playerStopped = true;
 
+      playSilence();
+
       reportStatus(PLAYER_OFF); //Report this interaction to the imp
     }
+  }
+
+  //If we reach the end of the silence MP3, start again
+  if (playerStopped == true && MP3player.isPlaying() == false)
+  {
+    playSilence();
   }
 
   if (Serial.available()) mainMenu();
